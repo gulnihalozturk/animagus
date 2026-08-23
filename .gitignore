@@ -1,0 +1,10 @@
+.worktrees/
+build/
+benchmark/results/
+docs/
+2026-229.pdf
+
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/

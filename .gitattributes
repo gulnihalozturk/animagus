@@ -1,0 +1,2 @@
+test_vectors/ours/** text eol=lf
+test_vectors/converted/cstruct/** text eol=lf
