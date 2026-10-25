@@ -2,23 +2,35 @@
 
 #include "aes.h"
 #include "animagus_ctr.h"
+#include "animagus_internal.h"
 #include "hmac_sha3.h"
 #include "util.h"
 
+#include <stddef.h>
 #include <string.h>
 
-#define ANIMAGUS_CTX_MAGIC UINT64_C(0x414e494d41475553)
+/* "ANIMAGV2": distinguishes v2 contexts from the retired v1 layout. */
+#define ANIMAGUS_CTX_MAGIC UINT64_C(0x414e494d41475632)
 
-#define ANIMAGUS_KDF_AES 0x01U
-#define ANIMAGUS_KDF_HASH 0x02U
-#define ANIMAGUS_KDF_TWEAK 0x03U
+enum animagus_working_key {
+    ANIMAGUS_KEY_HEAD1 = 0,
+    ANIMAGUS_KEY_HEAD2 = 1,
+    ANIMAGUS_KEY_SEED = 2,
+    ANIMAGUS_KEY_CTR = 3,
+    ANIMAGUS_KEY_HASH = 4,
+    ANIMAGUS_KEY_COUNT = 5,
+};
 
-static const uint8_t animagus_kdf_label[] = "Animagus-AES-v1/KDF";
+static const char *const animagus_key_roles[ANIMAGUS_KEY_COUNT] = {
+    "head1", "head2", "seed", "ctr", "hash",
+};
 
 struct animagus_ctx_impl {
-    struct animagus_aes_ctx aes;
-    struct hmac_sha3_256_ctx hmac;
-    uint8_t tweak_key[SHA3_256_DIGEST_SIZE];
+    struct animagus_aes_ctx head1;
+    struct animagus_aes_ctx head2;
+    struct animagus_aes_ctx seed;
+    struct animagus_aes_ctx ctr;
+    struct hmac_sha3_256_ctx hash;
     uint64_t magic;
 };
 
@@ -26,49 +38,74 @@ _Static_assert(sizeof(struct animagus_ctx_impl) <= ANIMAGUS_CONTEXT_BYTES,
                "Animagus implementation must fit in the public context");
 _Static_assert(_Alignof(struct animagus_ctx_impl) <= _Alignof(animagus_ctx),
                "Animagus implementation alignment exceeds public context");
+_Static_assert(ANIMAGUS_TWEAK_SIZE == ANIMAGUS_HASH_TWEAK_BYTES,
+               "Core hash frame and public tweak size must agree");
+_Static_assert(ANIMAGUS_MAX_FRAMED_SIZE == ANIMAGUS_HASH_MAX_FRAMED_BYTES,
+               "Public and internal framed-length limits must agree");
+_Static_assert(ANIMAGUS_MIN_MESSAGE_SIZE == 2U * ANIMAGUS_BLOCK_SIZE,
+               "The core input is two head blocks plus a tail");
 
-static void animagus_ctx_load(struct animagus_ctx_impl *impl,
-                              const animagus_ctx *ctx)
+int animagus_ctx_state(const animagus_ctx *ctx)
 {
-    memcpy(impl, ctx->opaque, sizeof(*impl));
+    uint64_t magic;
+
+    if (ctx == NULL) {
+        return ANIMAGUS_ERR_ARGUMENT;
+    }
+    memcpy(&magic, ctx->opaque + offsetof(struct animagus_ctx_impl, magic),
+           sizeof(magic));
+    return magic == ANIMAGUS_CTX_MAGIC ? ANIMAGUS_OK : ANIMAGUS_ERR_STATE;
 }
 
-static void animagus_derive_subkey(
-    const struct hmac_sha3_256_ctx *root, uint8_t purpose, size_t key_len,
-    uint8_t out[SHA3_256_DIGEST_SIZE])
+static int animagus_load_impl(struct animagus_ctx_impl *impl,
+                              const animagus_ctx *ctx)
 {
-    const uint8_t suffix[2] = { purpose, (uint8_t)key_len };
+    int result = animagus_ctx_state(ctx);
 
-    hmac_sha3_256_bytes2(root, animagus_kdf_label,
-                         sizeof(animagus_kdf_label) - 1U,
-                         suffix, sizeof(suffix), out);
+    if (result != ANIMAGUS_OK) {
+        return result;
+    }
+    memcpy(impl, ctx->opaque, sizeof(*impl));
+    return ANIMAGUS_OK;
+}
+
+static int animagus_check_length(size_t len)
+{
+    if (len < ANIMAGUS_MIN_MESSAGE_SIZE ||
+        animagus_size_exceeds(len, ANIMAGUS_MAX_MESSAGE_SIZE)) {
+        return ANIMAGUS_ERR_MESSAGE_SIZE;
+    }
+    return ANIMAGUS_OK;
+}
+
+static void animagus_xor_block(uint8_t out[16], const uint8_t left[16],
+                               const uint8_t right[16])
+{
+    size_t index;
+
+    for (index = 0; index < 16U; ++index) {
+        out[index] = left[index] ^ right[index];
+    }
 }
 
 static int animagus_validate_common(const animagus_ctx *ctx, uint8_t *dst,
                                     const uint8_t *src, size_t len,
-                                    const uint8_t *tweak, size_t tweak_len,
-                                    struct animagus_ctx_impl *impl)
+                                    const uint8_t *tweak)
 {
-    if (ctx == NULL) {
-        return ANIMAGUS_ERR_ARGUMENT;
-    }
+    int result = animagus_ctx_state(ctx);
 
-    animagus_ctx_load(impl, ctx);
-    if (impl->magic != ANIMAGUS_CTX_MAGIC) {
-        return ANIMAGUS_ERR_STATE;
+    if (result != ANIMAGUS_OK) {
+        return result;
     }
-    if (dst == NULL || src == NULL || (tweak == NULL && tweak_len != 0U)) {
+    if (dst == NULL || src == NULL || tweak == NULL) {
         return ANIMAGUS_ERR_ARGUMENT;
     }
-    if (len < ANIMAGUS_MIN_MESSAGE_SIZE ||
-        len > ANIMAGUS_MAX_MESSAGE_SIZE) {
-        return ANIMAGUS_ERR_MESSAGE_SIZE;
-    }
-    if (tweak_len != 0U && tweak_len != ANIMAGUS_TWEAK_SIZE) {
-        return ANIMAGUS_ERR_TWEAK_SIZE;
+    result = animagus_check_length(len);
+    if (result != ANIMAGUS_OK) {
+        return result;
     }
     if ((dst != src && animagus_ranges_overlap(dst, len, src, len)) ||
-        animagus_ranges_overlap(dst, len, tweak, tweak_len)) {
+        animagus_ranges_overlap(dst, len, tweak, ANIMAGUS_TWEAK_SIZE)) {
         return ANIMAGUS_ERR_OVERLAP;
     }
     return ANIMAGUS_OK;
@@ -76,10 +113,7 @@ static int animagus_validate_common(const animagus_ctx *ctx, uint8_t *dst,
 
 int animagus_init(animagus_ctx *ctx, const uint8_t *key, size_t key_len)
 {
-    enum animagus_backend backend = animagus_aes_hardware_available() ?
-        ANIMAGUS_BACKEND_HARDWARE : ANIMAGUS_BACKEND_PORTABLE;
-
-    return animagus_init_ex(ctx, key, key_len, backend);
+    return animagus_init_ex(ctx, key, key_len, ANIMAGUS_BACKEND_AUTO);
 }
 
 int animagus_init_ex(animagus_ctx *ctx, const uint8_t *key, size_t key_len,
@@ -87,10 +121,9 @@ int animagus_init_ex(animagus_ctx *ctx, const uint8_t *key, size_t key_len,
 {
     struct animagus_ctx_impl temporary = { 0 };
     struct hmac_sha3_256_ctx root_hmac = { 0 };
-    uint8_t aes_key[SHA3_256_DIGEST_SIZE] = { 0 };
-    uint8_t hash_key[SHA3_256_DIGEST_SIZE] = { 0 };
-    uint8_t tweak_key[SHA3_256_DIGEST_SIZE] = { 0 };
+    uint8_t working[ANIMAGUS_KEY_COUNT][SHA3_256_DIGEST_SIZE] = { { 0 } };
     enum animagus_aes_backend aes_backend;
+    size_t index;
     int result = ANIMAGUS_OK;
 
     if (ctx == NULL || key == NULL) {
@@ -121,43 +154,122 @@ int animagus_init_ex(animagus_ctx *ctx, const uint8_t *key, size_t key_len,
         result = ANIMAGUS_ERR_BACKEND;
         goto cleanup;
     }
-    animagus_derive_subkey(&root_hmac, ANIMAGUS_KDF_AES, key_len, aes_key);
-    animagus_derive_subkey(&root_hmac, ANIMAGUS_KDF_HASH, key_len, hash_key);
-    animagus_derive_subkey(&root_hmac, ANIMAGUS_KDF_TWEAK, key_len, tweak_key);
+    for (index = 0; index < ANIMAGUS_KEY_COUNT; ++index) {
+        if (hmac_sha3_256_kdf_v2(&root_hmac, animagus_key_roles[index],
+                                 key_len, working[index]) != 0) {
+            result = ANIMAGUS_ERR_BACKEND;
+            goto cleanup;
+        }
+    }
 
-    if (animagus_aes_setkey(&temporary.aes, aes_key, key_len,
-                            aes_backend) != 0 ||
-        hmac_sha3_256_init(&temporary.hmac, hash_key,
-                           sizeof(hash_key)) != 0) {
+    if (animagus_aes_setkey(&temporary.head1, working[ANIMAGUS_KEY_HEAD1],
+                            key_len, aes_backend) != 0 ||
+        animagus_aes_setkey(&temporary.head2, working[ANIMAGUS_KEY_HEAD2],
+                            key_len, aes_backend) != 0 ||
+        animagus_aes_setkey(&temporary.seed, working[ANIMAGUS_KEY_SEED],
+                            key_len, aes_backend) != 0 ||
+        animagus_aes_setkey(&temporary.ctr, working[ANIMAGUS_KEY_CTR],
+                            key_len, aes_backend) != 0 ||
+        hmac_sha3_256_init(&temporary.hash, working[ANIMAGUS_KEY_HASH],
+                           key_len) != 0) {
         result = ANIMAGUS_ERR_BACKEND;
         goto cleanup;
     }
-    memcpy(temporary.tweak_key, tweak_key, sizeof(temporary.tweak_key));
     temporary.magic = ANIMAGUS_CTX_MAGIC;
     memset(ctx->opaque, 0, sizeof(ctx->opaque));
     memcpy(ctx->opaque, &temporary, sizeof(temporary));
 
 cleanup:
-    animagus_secure_zero(tweak_key, sizeof(tweak_key));
-    animagus_secure_zero(hash_key, sizeof(hash_key));
-    animagus_secure_zero(aes_key, sizeof(aes_key));
+    animagus_secure_zero(working, sizeof(working));
     animagus_secure_zero(&root_hmac, sizeof(root_hmac));
     animagus_secure_zero(&temporary, sizeof(temporary));
     return result;
 }
 
-int animagus_encrypt(const animagus_ctx *ctx, uint8_t *dst,
-                     const uint8_t *src, size_t len,
-                     const uint8_t *tweak, size_t tweak_len)
+int animagus_core_encrypt(const animagus_ctx *ctx, uint8_t *dst,
+                          const uint8_t head[ANIMAGUS_BLOCK_SIZE],
+                          const uint8_t *rest, size_t len,
+                          const uint8_t tweak[ANIMAGUS_TWEAK_SIZE])
 {
     struct animagus_ctx_impl impl = { 0 };
-    uint8_t x[32], a1[16], a2[16], f[16], b[16], j[16];
+    uint8_t x[SHA3_256_DIGEST_SIZE];
+    uint8_t f[16], b[16], j[16], f_star[16], b_star[16];
     uint8_t first[16], second[16], tmp[16];
-    size_t index;
     int result;
 
-    result = animagus_validate_common(ctx, dst, src, len, tweak, tweak_len,
-                                      &impl);
+    result = animagus_load_impl(&impl, ctx);
+    if (result != ANIMAGUS_OK) {
+        goto cleanup;
+    }
+    result = animagus_check_length(len);
+    if (result != ANIMAGUS_OK) {
+        goto cleanup;
+    }
+
+    memcpy(first, head, sizeof(first));
+    memcpy(second, rest, sizeof(second));
+
+    /* X1 = H(P_tail || 10 || T); A1 = MSB(X1), A2 = LSB(X1). */
+    hmac_sha3_256_core_v2(&impl.hash, rest + 16U, len - 32U,
+                          ANIMAGUS_ROLE_PLAINTEXT_TAIL, tweak, x);
+
+    /* F = E_head1(P1 ^ A2), B = E_head2(P2 ^ A1). */
+    animagus_xor_block(tmp, first, x + 16U);
+    animagus_aes_encrypt_block(&impl.head1, f, tmp);
+    animagus_xor_block(tmp, second, x);
+    animagus_aes_encrypt_block(&impl.head2, b, tmp);
+
+    /* J = E_seed(F ^ B); F* = F ^ J, B* = B ^ J. */
+    animagus_xor_block(tmp, f, b);
+    animagus_aes_encrypt_block(&impl.seed, j, tmp);
+    animagus_xor_block(f_star, f, j);
+    animagus_xor_block(b_star, b, j);
+
+    animagus_ctr_crypt(&impl.ctr, dst + 32U, rest + 16U, len - 32U, j);
+
+    /* X2 = H(C_tail || 01 || T); A3 = MSB(X2), A4 = LSB(X2). */
+    hmac_sha3_256_core_v2(&impl.hash, dst + 32U, len - 32U,
+                          ANIMAGUS_ROLE_CIPHERTEXT_TAIL, tweak, x);
+
+    /* C1 = E_head1(F*) ^ A4, C2 = E_head2(B*) ^ A3. */
+    animagus_aes_encrypt_block(&impl.head1, tmp, f_star);
+    animagus_xor_block(first, tmp, x + 16U);
+    animagus_aes_encrypt_block(&impl.head2, tmp, b_star);
+    animagus_xor_block(second, tmp, x);
+
+    memcpy(dst, first, sizeof(first));
+    memcpy(dst + sizeof(first), second, sizeof(second));
+
+cleanup:
+    animagus_secure_zero(tmp, sizeof(tmp));
+    animagus_secure_zero(second, sizeof(second));
+    animagus_secure_zero(first, sizeof(first));
+    animagus_secure_zero(b_star, sizeof(b_star));
+    animagus_secure_zero(f_star, sizeof(f_star));
+    animagus_secure_zero(j, sizeof(j));
+    animagus_secure_zero(b, sizeof(b));
+    animagus_secure_zero(f, sizeof(f));
+    animagus_secure_zero(x, sizeof(x));
+    animagus_secure_zero(&impl, sizeof(impl));
+    return result;
+}
+
+int animagus_core_decrypt(const animagus_ctx *ctx,
+                          uint8_t head_out[ANIMAGUS_BLOCK_SIZE],
+                          uint8_t *rest_out, const uint8_t *src, size_t len,
+                          const uint8_t tweak[ANIMAGUS_TWEAK_SIZE])
+{
+    struct animagus_ctx_impl impl = { 0 };
+    uint8_t x[SHA3_256_DIGEST_SIZE];
+    uint8_t f[16], b[16], j[16], f_star[16], b_star[16];
+    uint8_t first[16], second[16], tmp[16];
+    int result;
+
+    result = animagus_load_impl(&impl, ctx);
+    if (result != ANIMAGUS_OK) {
+        goto cleanup;
+    }
+    result = animagus_check_length(len);
     if (result != ANIMAGUS_OK) {
         goto cleanup;
     }
@@ -165,176 +277,147 @@ int animagus_encrypt(const animagus_ctx *ctx, uint8_t *dst,
     memcpy(first, src, sizeof(first));
     memcpy(second, src + sizeof(first), sizeof(second));
 
-    hmac_sha3_256_animagus_v1(&impl.hmac, src + 32U, len - 32U,
-                              ANIMAGUS_HASH_PLAINTEXT,
-                              tweak, tweak_len, x);
-    memcpy(a1, x, sizeof(a1));
-    memcpy(a2, x + sizeof(a1), sizeof(a2));
+    /* X2 = H(C_tail || 01 || T); A3 = MSB(X2), A4 = LSB(X2). */
+    hmac_sha3_256_core_v2(&impl.hash, src + 32U, len - 32U,
+                          ANIMAGUS_ROLE_CIPHERTEXT_TAIL, tweak, x);
 
-    for (index = 0; index < sizeof(tmp); ++index) {
-        tmp[index] = first[index] ^ a2[index];
-    }
-    animagus_aes_encrypt_block(&impl.aes, f, tmp);
+    /* F* = D_head1(C1 ^ A4), B* = D_head2(C2 ^ A3). */
+    animagus_xor_block(tmp, first, x + 16U);
+    animagus_aes_decrypt_block(&impl.head1, f_star, tmp);
+    animagus_xor_block(tmp, second, x);
+    animagus_aes_decrypt_block(&impl.head2, b_star, tmp);
 
-    for (index = 0; index < sizeof(tmp); ++index) {
-        tmp[index] = second[index] ^ a1[index] ^ f[index];
-    }
-    animagus_aes_encrypt_block(&impl.aes, b, tmp);
+    /* J = E_seed(F* ^ B*) = E_seed(F ^ B); F = F* ^ J, B = B* ^ J. */
+    animagus_xor_block(tmp, f_star, b_star);
+    animagus_aes_encrypt_block(&impl.seed, j, tmp);
+    animagus_xor_block(f, f_star, j);
+    animagus_xor_block(b, b_star, j);
 
-    for (index = 0; index < sizeof(j); ++index) {
-        j[index] = f[index] ^ b[index];
-    }
-    animagus_ctr_crypt(&impl.aes, dst + 32U, src + 32U, len - 32U, j);
+    animagus_ctr_crypt(&impl.ctr, rest_out + 16U, src + 32U, len - 32U, j);
 
-    hmac_sha3_256_animagus_v1(&impl.hmac, dst + 32U, len - 32U,
-                              ANIMAGUS_HASH_CIPHERTEXT,
-                              tweak, tweak_len, x);
-    memcpy(a1, x, sizeof(a1));
-    memcpy(a2, x + sizeof(a1), sizeof(a2));
+    /* X1 = H(P_tail || 10 || T); A1 = MSB(X1), A2 = LSB(X1). */
+    hmac_sha3_256_core_v2(&impl.hash, rest_out + 16U, len - 32U,
+                          ANIMAGUS_ROLE_PLAINTEXT_TAIL, tweak, x);
 
-    for (index = 0; index < sizeof(tmp); ++index) {
-        tmp[index] = b[index] ^ a1[index];
-    }
-    animagus_aes_encrypt_block(&impl.aes, second, tmp);
+    /* P1 = D_head1(F) ^ A2, P2 = D_head2(B) ^ A1. */
+    animagus_aes_decrypt_block(&impl.head1, tmp, f);
+    animagus_xor_block(first, tmp, x + 16U);
+    animagus_aes_decrypt_block(&impl.head2, tmp, b);
+    animagus_xor_block(second, tmp, x);
 
-    for (index = 0; index < sizeof(tmp); ++index) {
-        tmp[index] = f[index] ^ a2[index] ^ second[index];
-    }
-    animagus_aes_encrypt_block(&impl.aes, first, tmp);
-
-    memcpy(dst, first, sizeof(first));
-    memcpy(dst + sizeof(first), second, sizeof(second));
+    memcpy(rest_out, second, sizeof(second));
+    memcpy(head_out, first, sizeof(first));
 
 cleanup:
     animagus_secure_zero(tmp, sizeof(tmp));
     animagus_secure_zero(second, sizeof(second));
     animagus_secure_zero(first, sizeof(first));
+    animagus_secure_zero(b_star, sizeof(b_star));
+    animagus_secure_zero(f_star, sizeof(f_star));
     animagus_secure_zero(j, sizeof(j));
     animagus_secure_zero(b, sizeof(b));
     animagus_secure_zero(f, sizeof(f));
-    animagus_secure_zero(a2, sizeof(a2));
-    animagus_secure_zero(a1, sizeof(a1));
     animagus_secure_zero(x, sizeof(x));
     animagus_secure_zero(&impl, sizeof(impl));
     return result;
 }
 
+int animagus_encrypt(const animagus_ctx *ctx, uint8_t *dst,
+                     const uint8_t *src, size_t len,
+                     const uint8_t tweak[ANIMAGUS_TWEAK_SIZE])
+{
+    int result = animagus_validate_common(ctx, dst, src, len, tweak);
+
+    if (result != ANIMAGUS_OK) {
+        return result;
+    }
+    return animagus_core_encrypt(ctx, dst, src, src + ANIMAGUS_BLOCK_SIZE,
+                                 len, tweak);
+}
+
 int animagus_decrypt(const animagus_ctx *ctx, uint8_t *dst,
                      const uint8_t *src, size_t len,
-                     const uint8_t *tweak, size_t tweak_len)
+                     const uint8_t tweak[ANIMAGUS_TWEAK_SIZE])
+{
+    int result = animagus_validate_common(ctx, dst, src, len, tweak);
+
+    if (result != ANIMAGUS_OK) {
+        return result;
+    }
+    return animagus_core_decrypt(ctx, dst, dst + ANIMAGUS_BLOCK_SIZE, src,
+                                 len, tweak);
+}
+
+static int animagus_validate_tweak_inputs(enum animagus_application app,
+                                          const uint8_t *nonce,
+                                          size_t nonce_len,
+                                          const uint8_t *ad, size_t ad_len)
+{
+    if ((nonce == NULL && nonce_len != 0U) || (ad == NULL && ad_len != 0U)) {
+        return ANIMAGUS_ERR_ARGUMENT;
+    }
+    if (animagus_size_exceeds(nonce_len, ANIMAGUS_MAX_FRAMED_SIZE) ||
+        animagus_size_exceeds(ad_len, ANIMAGUS_MAX_FRAMED_SIZE)) {
+        return ANIMAGUS_ERR_ARGUMENT;
+    }
+    switch (app) {
+    case ANIMAGUS_APPLICATION_AEAD:
+        return nonce_len == 0U ? ANIMAGUS_ERR_ARGUMENT : ANIMAGUS_OK;
+    case ANIMAGUS_APPLICATION_TWEAKABLE:
+        return nonce_len != 0U ? ANIMAGUS_ERR_ARGUMENT : ANIMAGUS_OK;
+    case ANIMAGUS_APPLICATION_DAE:
+        return (nonce_len != 0U || ad_len != 0U) ?
+            ANIMAGUS_ERR_ARGUMENT : ANIMAGUS_OK;
+    default:
+        return ANIMAGUS_ERR_ARGUMENT;
+    }
+}
+
+int animagus_make_tweak(const animagus_ctx *ctx,
+                        uint8_t tweak[ANIMAGUS_TWEAK_SIZE],
+                        enum animagus_application application,
+                        const uint8_t *nonce, size_t nonce_len,
+                        const uint8_t *ad, size_t ad_len)
 {
     struct animagus_ctx_impl impl = { 0 };
-    uint8_t x[32], a1[16], a2[16], a3[16], a4[16];
-    uint8_t f[16], b[16], j[16], c1[16], c2[16];
-    uint8_t first[16], second[16], tmp[16];
-    size_t index;
+    uint8_t digest[SHA3_256_DIGEST_SIZE];
     int result;
 
-    result = animagus_validate_common(ctx, dst, src, len, tweak, tweak_len,
-                                      &impl);
+    result = animagus_load_impl(&impl, ctx);
+    if (result != ANIMAGUS_OK) {
+        goto cleanup;
+    }
+    if (tweak == NULL) {
+        result = ANIMAGUS_ERR_ARGUMENT;
+        goto cleanup;
+    }
+    result = animagus_validate_tweak_inputs(application, nonce, nonce_len,
+                                            ad, ad_len);
     if (result != ANIMAGUS_OK) {
         goto cleanup;
     }
 
-    memcpy(c1, src, sizeof(c1));
-    memcpy(c2, src + sizeof(c1), sizeof(c2));
-
-    hmac_sha3_256_animagus_v1(&impl.hmac, src + 32U, len - 32U,
-                              ANIMAGUS_HASH_CIPHERTEXT,
-                              tweak, tweak_len, x);
-    memcpy(a1, x, sizeof(a1));
-    memcpy(a2, x + sizeof(a1), sizeof(a2));
-
-    animagus_aes_decrypt_block(&impl.aes, tmp, c1);
-    for (index = 0; index < sizeof(f); ++index) {
-        f[index] = tmp[index] ^ a2[index] ^ c2[index];
+    if (hmac_sha3_256_tweak_v2(&impl.hash, (uint8_t)application,
+                               nonce, nonce_len, ad, ad_len, digest) != 0) {
+        result = ANIMAGUS_ERR_ARGUMENT;
+        goto cleanup;
     }
-
-    animagus_aes_decrypt_block(&impl.aes, tmp, c2);
-    for (index = 0; index < sizeof(b); ++index) {
-        b[index] = tmp[index] ^ a1[index];
-    }
-
-    for (index = 0; index < sizeof(j); ++index) {
-        j[index] = f[index] ^ b[index];
-    }
-    animagus_ctr_crypt(&impl.aes, dst + 32U, src + 32U, len - 32U, j);
-
-    hmac_sha3_256_animagus_v1(&impl.hmac, dst + 32U, len - 32U,
-                              ANIMAGUS_HASH_PLAINTEXT,
-                              tweak, tweak_len, x);
-    memcpy(a3, x, sizeof(a3));
-    memcpy(a4, x + sizeof(a3), sizeof(a4));
-
-    animagus_aes_decrypt_block(&impl.aes, tmp, b);
-    for (index = 0; index < sizeof(second); ++index) {
-        second[index] = tmp[index] ^ a3[index] ^ f[index];
-    }
-
-    animagus_aes_decrypt_block(&impl.aes, tmp, f);
-    for (index = 0; index < sizeof(first); ++index) {
-        first[index] = tmp[index] ^ a4[index];
-    }
-
-    memcpy(dst, first, sizeof(first));
-    memcpy(dst + sizeof(first), second, sizeof(second));
+    memcpy(tweak, digest, ANIMAGUS_TWEAK_SIZE);
 
 cleanup:
-    animagus_secure_zero(tmp, sizeof(tmp));
-    animagus_secure_zero(second, sizeof(second));
-    animagus_secure_zero(first, sizeof(first));
-    animagus_secure_zero(c2, sizeof(c2));
-    animagus_secure_zero(c1, sizeof(c1));
-    animagus_secure_zero(j, sizeof(j));
-    animagus_secure_zero(b, sizeof(b));
-    animagus_secure_zero(f, sizeof(f));
-    animagus_secure_zero(a4, sizeof(a4));
-    animagus_secure_zero(a3, sizeof(a3));
-    animagus_secure_zero(a2, sizeof(a2));
-    animagus_secure_zero(a1, sizeof(a1));
-    animagus_secure_zero(x, sizeof(x));
+    animagus_secure_zero(digest, sizeof(digest));
     animagus_secure_zero(&impl, sizeof(impl));
     return result;
 }
 
 int animagus_derive_tweak(const animagus_ctx *ctx,
                           uint8_t tweak[ANIMAGUS_TWEAK_SIZE],
-                          const uint8_t *nonce, size_t nonce_len,
-                          const uint8_t *ad, size_t ad_len)
+                          const uint8_t *context, size_t context_len)
 {
-    struct animagus_ctx_impl impl = { 0 };
-    struct hmac_sha3_256_ctx tweak_hmac = { 0 };
-    uint8_t digest[32];
-    int result = ANIMAGUS_OK;
-
-    if (ctx == NULL) {
-        return ANIMAGUS_ERR_ARGUMENT;
-    }
-    animagus_ctx_load(&impl, ctx);
-    if (impl.magic != ANIMAGUS_CTX_MAGIC) {
-        result = ANIMAGUS_ERR_STATE;
-        goto cleanup;
-    }
-    if (tweak == NULL || (nonce == NULL && nonce_len != 0U) ||
-        (ad == NULL && ad_len != 0U)) {
-        result = ANIMAGUS_ERR_ARGUMENT;
-        goto cleanup;
-    }
-
-    if (hmac_sha3_256_init(&tweak_hmac, impl.tweak_key,
-                           sizeof(impl.tweak_key)) != 0) {
-        result = ANIMAGUS_ERR_BACKEND;
-        goto cleanup;
-    }
-    hmac_sha3_256_tweak_v1(&tweak_hmac, nonce, nonce_len,
-                           ad, ad_len, digest);
-    memcpy(tweak, digest, ANIMAGUS_TWEAK_SIZE);
-
-cleanup:
-    animagus_secure_zero(digest, sizeof(digest));
-    animagus_secure_zero(&tweak_hmac, sizeof(tweak_hmac));
-    animagus_secure_zero(&impl, sizeof(impl));
-    return result;
+    /* The only derived tweak the paper defines for direct core use. The
+     * AEAD and DAE tweaks stay inside the derived layer. */
+    return animagus_make_tweak(ctx, tweak, ANIMAGUS_APPLICATION_TWEAKABLE,
+                               NULL, 0U, context, context_len);
 }
 
 void animagus_clear(animagus_ctx *ctx)

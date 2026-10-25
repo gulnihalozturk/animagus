@@ -17,6 +17,7 @@ arch_c_args = []
 
 animagus_sources = [
   'src/animagus.c',
+  'src/animagus_derived.c',
   'src/util.c',
   'src/aes.c',
   'src/animagus_ctr.c',

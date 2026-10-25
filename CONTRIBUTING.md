@@ -19,17 +19,24 @@ or only its implementation.
 
 ## Profile-sensitive changes
 
-The exact KDF labels, purpose bytes, domain bytes, field widths, byte order,
-field order, supported lengths, digest split, and CTR convention are normative.
-Changing any of them creates a new cryptographic profile and requires:
+The exact KDF fixed-input format and labels, the two-bit role codes and
+their bit order, the MakeTweak field widths and order, supported lengths, the
+digest split, and the CTR convention are normative. Most of them are the
+paper's specification. The repository's own choices are the FIPS 202 reading
+of the paper's two-bit strings, the byte-only input domain, and the
+per-interface MakeTweak shapes; they are documented as such in
+`docs/paper-gaps.md`. Changing any of these items creates a new cryptographic
+profile and requires:
 
 1. a version/name decision;
 2. an update to the public specification and supporting proof or erratum;
 3. new normative vectors and compatibility notes; and
 4. independent cryptographic review.
 
-Do not silently replace the domain-separated framing with the literal-paper
-framing or same-raw-key behavior.
+Do not reintroduce repository-specific framing, labels, length fields, or
+key derivation on top of the paper's construction, and do not restore the
+retired empty-tweak or `Animagus-AES-v1` behavior. The proof applies only to
+the construction as published.
 
 ## Tests and generated vectors
 
@@ -43,12 +50,12 @@ Regenerate every deterministic fixture with:
 
 ```sh
 python3 python/generate_primitive_vectors.py \
-  --c-header test_vectors/converted/cstruct/hmac_sha3_animagus_v1_testvecs.h
+  --c-header test_vectors/converted/cstruct/hmac_sha3_animagus_v2_testvecs.h
 python3 python/generate_test_vectors.py
 ```
 
 The three Animagus JSON files must remain labeled as normative
-`Animagus-AES-v1` vectors with profile version `1`. The framed-HMAC fixture must
+`Animagus-AES-v2` vectors with profile version `2`. The keyed-hash fixture must
 remain labeled non-normative. Do not hand-edit generated JSON or C files.
 
 Confirm reproducibility and run the Python suites:

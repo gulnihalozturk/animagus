@@ -40,3 +40,13 @@ test_animagus = executable('test_animagus',
   c_args: local_c_args)
 
 test('animagus', test_animagus)
+
+test_animagus_derived = executable('test_animagus_derived',
+  ['test_animagus_derived.c', 'test_common.c',
+   '../test_vectors/converted/cstruct/animagus_testvecs.c'],
+  include_directories: [root_inc,
+    include_directories('../test_vectors/converted/cstruct')],
+  dependencies: animagus_dep,
+  c_args: local_c_args)
+
+test('animagus_derived', test_animagus_derived)

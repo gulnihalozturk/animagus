@@ -350,9 +350,9 @@ int cipherbench_run(const struct cipherbench_params *params)
     }
     context_ready = true;
     if (animagus_encrypt(&context, ciphertext, plaintext, params->bufsize,
-                         tweak, sizeof(tweak)) != ANIMAGUS_OK ||
+                         tweak) != ANIMAGUS_OK ||
         animagus_decrypt(&context, recovered, ciphertext, params->bufsize,
-                         tweak, sizeof(tweak)) != ANIMAGUS_OK ||
+                         tweak) != ANIMAGUS_OK ||
         memcmp(recovered, plaintext, params->bufsize) != 0) {
         result = fail_message("untimed encryption/decryption self-test failed");
         goto out;
@@ -360,10 +360,10 @@ int cipherbench_run(const struct cipherbench_params *params)
 
     CIPHER_BENCHMARK_MEASURE(encryption_time, result, animagus_encrypt,
                              &context, ciphertext, plaintext, params->bufsize,
-                             tweak, sizeof(tweak), messages, params->ntries);
+                             tweak, messages, params->ntries);
     CIPHER_BENCHMARK_MEASURE(decryption_time, result, animagus_decrypt,
                              &context, recovered, ciphertext, params->bufsize,
-                             tweak, sizeof(tweak), messages, params->ntries);
+                             tweak, messages, params->ntries);
     if (memcmp(recovered, plaintext, params->bufsize) != 0) {
         result = fail_message("timed decryption did not recover plaintext");
         goto out;

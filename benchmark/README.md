@@ -79,9 +79,10 @@ as implementation results for this source tree on the recorded machine.
 
 ## Cross-algorithm comparison
 
-`compare_cpb.py` produces the paper's AES-256 comparison table — this
-repository's Animagus implementation against HCTR2, Adiantum, TET, HEH,
-and an AES-256-XTS baseline — with one uniform methodology. It builds
+`compare_cpb.py` produces an AES-256 cycles-per-byte comparison table (the
+construction paper publishes no performance figures) — this repository's
+Animagus implementation against HCTR2, Adiantum, TET, HEH, and an AES-256-XTS
+baseline — with one uniform methodology. It builds
 unmodified checkouts of [google/hctr2](https://github.com/google/hctr2),
 [google/adiantum](https://github.com/google/adiantum), and the TET/HEH
 benchmark repository, expected at `../hctr2`, `../adiantum`, and `../tet`

@@ -37,10 +37,10 @@ static uint64_t rotate_left64(uint64_t value, unsigned int shift)
 
 static void keccak_f1600(uint64_t state[25])
 {
+    uint64_t parity[5], delta[5], moved[25];
     size_t round;
 
     for (round = 0; round < 24U; ++round) {
-        uint64_t parity[5], delta[5], moved[25];
         size_t x, y;
 
         for (x = 0; x < 5U; ++x) {
@@ -75,14 +75,18 @@ static void keccak_f1600(uint64_t state[25])
         }
         state[0] ^= round_constants[round];
     }
+    /* The temporaries hold permutation state derived from keyed input. */
+    animagus_secure_zero(moved, sizeof(moved));
+    animagus_secure_zero(delta, sizeof(delta));
+    animagus_secure_zero(parity, sizeof(parity));
 }
 
 static void sha3_absorb_bit(struct sha3_256_ctx *ctx, unsigned int bit)
 {
-    if (bit != 0U) {
-        ctx->lanes[ctx->bit_pos / 64U] ^=
-            UINT64_C(1) << (ctx->bit_pos % 64U);
-    }
+    /* Branch-free: absorbed data (including the tweak) must not steer
+     * control flow. Only lengths do. */
+    ctx->lanes[ctx->bit_pos / 64U] ^=
+        (uint64_t)(bit & 1U) << (ctx->bit_pos % 64U);
     ++ctx->bit_pos;
     if (ctx->bit_pos == SHA3_256_RATE_BITS) {
         keccak_f1600(ctx->lanes);

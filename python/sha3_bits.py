@@ -1,4 +1,10 @@
-"""Independent bit-oriented SHA3-256 and HMAC-SHA3-256 oracle."""
+"""Bit-oriented SHA3-256 and HMAC-SHA3-256 for the vector oracle.
+
+This module is structurally parallel to src/sha3.c (same lane indexing and
+per-bit absorption), so it is not an independent implementation of Keccak.
+Its external anchor is the NIST CAVP bit-oriented SHA3-256 vectors checked by
+python/test_sha3_bits.py, which pin the FIPS 202 bit order for partial bytes.
+"""
 
 MASK64 = (1 << 64) - 1
 RATE_BITS = 1088

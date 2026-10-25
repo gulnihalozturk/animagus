@@ -40,3 +40,8 @@ static __always_inline void put_unaligned_le32(u32 value, void *pointer)
 void animagus_secure_zero(void *pointer, size_t length);
 bool animagus_ranges_overlap(const void *a, size_t a_len,
                              const void *b, size_t b_len);
+/* True when every byte is zero; the scan does not depend on the data. */
+bool animagus_ct_all_zero(const uint8_t *bytes, size_t length);
+/* value > limit, evaluated in 64 bits so that a 32-bit size_t does not make
+ * comparisons against the 64-bit profile limits tautological. */
+bool animagus_size_exceeds(size_t value, uint64_t limit);

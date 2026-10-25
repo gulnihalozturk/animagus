@@ -16,7 +16,7 @@
 
 #define CIPHER_BENCHMARK_MEASURE(elapsed_ns, status, operation, context,    \
                                  destination, source, length, tweak_bytes,  \
-                                 tweak_length, messages, trial_count)       \
+                                 messages, trial_count)                     \
     do {                                                                     \
         size_t benchmark_try;                                                \
         (elapsed_ns) = UINT64_MAX;                                           \
@@ -32,8 +32,7 @@
             for (message_index = 0U; message_index < (messages);             \
                  ++message_index) {                                          \
                 if ((operation)((context), (destination), (source),          \
-                                (length), (tweak_bytes),                     \
-                                (tweak_length)) != ANIMAGUS_OK) {            \
+                                (length), (tweak_bytes)) != ANIMAGUS_OK) {   \
                     (status) = fail_message("Animagus operation failed");    \
                     goto out;                                                \
                 }                                                            \

@@ -9,6 +9,22 @@ void animagus_secure_zero(void *pointer, size_t length)
     }
 }
 
+bool animagus_ct_all_zero(const uint8_t *bytes, size_t length)
+{
+    volatile u8 accumulator = 0;
+    size_t index;
+
+    for (index = 0; index < length; ++index) {
+        accumulator |= bytes[index];
+    }
+    return accumulator == 0U;
+}
+
+bool animagus_size_exceeds(size_t value, uint64_t limit)
+{
+    return (uint64_t)value > limit;
+}
+
 bool animagus_ranges_overlap(const void *a, size_t a_len,
                              const void *b, size_t b_len)
 {

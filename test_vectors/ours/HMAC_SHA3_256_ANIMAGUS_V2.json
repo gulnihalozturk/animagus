@@ -1,0 +1,289 @@
+{
+  "algorithm": "HMAC-SHA3-256 Animagus-AES-v2 key derivation and framing",
+  "core_cases": [
+    {
+      "ciphertext_digest": "684d09abacdf9d889a700114c7c65ad8ce92cce3916e1173c53f324c273c8065",
+      "key": "000102030405060708090a0b0c0d0e0f",
+      "plaintext_digest": "3d2d0b5ae3037e7858904e9102e55dda6079ec2eef445e009e8fa9053e40f3ed",
+      "tail": "",
+      "tweak": "00000000000000000000000000000000"
+    },
+    {
+      "ciphertext_digest": "7d4beae898d73d676078673fc3f3828b9d30c46a2a1e790c250336ab9c86023a",
+      "key": "000102030405060708090a0b0c0d0e0f",
+      "plaintext_digest": "49c6a5a045df3a65df6f1859ed1e671c5200c47de46d5af874b73c9a739784eb",
+      "tail": "",
+      "tweak": "000102030405060708090a0b0c0d0e0f"
+    },
+    {
+      "ciphertext_digest": "315f081d45050557bcbb59bc381f294c4ef66e9cdaa15cf5fbd57926c2c77234",
+      "key": "000102030405060708090a0b0c0d0e0f",
+      "plaintext_digest": "02927be4b9cf27838d652581d5757aa2dd5f4a81c0c35b695a664d422c00ae22",
+      "tail": "00",
+      "tweak": "00000000000000000000000000000000"
+    },
+    {
+      "ciphertext_digest": "373f4618cf9ddf797786bf0c14b3f26057bc538e20ecb27526a727dd13792b0d",
+      "key": "000102030405060708090a0b0c0d0e0f",
+      "plaintext_digest": "2330b2523a7c39c2f180b075e6fc3a49cec4e4cabd396a6038f1fad8d7ea07b1",
+      "tail": "00",
+      "tweak": "000102030405060708090a0b0c0d0e0f"
+    },
+    {
+      "ciphertext_digest": "28d8995dc444564b87c904337d842fa7b194b388438b21bc31dc325f5b716d52",
+      "key": "000102030405060708090a0b0c0d0e0f",
+      "plaintext_digest": "cc848b851db0a84f865f29e03cd981866b69127098614e577632710d2027f706",
+      "tail": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20",
+      "tweak": "00000000000000000000000000000000"
+    },
+    {
+      "ciphertext_digest": "658d4e700b49c71287c4c15aaf84c1bfcd7e415783d744b2c22d9d7d4640f86c",
+      "key": "000102030405060708090a0b0c0d0e0f",
+      "plaintext_digest": "3ae823373642ef272a143d227a864dce9e7dcd389a985a5e508600ba0101ae1f",
+      "tail": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20",
+      "tweak": "000102030405060708090a0b0c0d0e0f"
+    },
+    {
+      "ciphertext_digest": "37d874f8c44d05e22714c29e53d5aa5615c973b9fe30e2c33bfc8f7578dd9600",
+      "key": "000102030405060708090a0b0c0d0e0f1011121314151617",
+      "plaintext_digest": "2fcf572ea5a6146ba0eb46a5bf025dc2b918d786ae6924c5351da4dc789c5144",
+      "tail": "",
+      "tweak": "00000000000000000000000000000000"
+    },
+    {
+      "ciphertext_digest": "8a23b866ae0056b3373788f636b410c01afd45779cf73f93ea3f4d4bdb608cc2",
+      "key": "000102030405060708090a0b0c0d0e0f1011121314151617",
+      "plaintext_digest": "8329e27bc0b2a9d0b822f62ebc411d5b3321d5db9e5c354aaec0a1048cdcb3ec",
+      "tail": "",
+      "tweak": "000102030405060708090a0b0c0d0e0f"
+    },
+    {
+      "ciphertext_digest": "0511833828eae7700b3617e11fc9cabdc7395bee8a4847256c99bcb50600e58c",
+      "key": "000102030405060708090a0b0c0d0e0f1011121314151617",
+      "plaintext_digest": "29330600f441a05524fac1c6bb7099da57105800e6988323a9e3fc4909f2c19e",
+      "tail": "00",
+      "tweak": "00000000000000000000000000000000"
+    },
+    {
+      "ciphertext_digest": "0f2904dd71c42408fbe0bcbffe28be0395c4c5c7c81f2d92450a763b8f906a2a",
+      "key": "000102030405060708090a0b0c0d0e0f1011121314151617",
+      "plaintext_digest": "07843d4cdd7a3ae6f896f1f1806c265e324033d408c9079778d32a91c9b9b51d",
+      "tail": "00",
+      "tweak": "000102030405060708090a0b0c0d0e0f"
+    },
+    {
+      "ciphertext_digest": "7287faf407bd695d1919b81a4b24c64742457e84f27c1b756e6ff23d0d03b7e3",
+      "key": "000102030405060708090a0b0c0d0e0f1011121314151617",
+      "plaintext_digest": "5c8d64376ca0674f531ccc04fa53f4650cb12b7e1b3216039c579eafd7884c92",
+      "tail": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20",
+      "tweak": "00000000000000000000000000000000"
+    },
+    {
+      "ciphertext_digest": "94c36c35e61b2164cc0be6ec6b3cc796fc357f207d2643385e0246f43d1c945c",
+      "key": "000102030405060708090a0b0c0d0e0f1011121314151617",
+      "plaintext_digest": "83903d2946566f4367d28708f6926df28cbefeb34feef50326cc224567e99482",
+      "tail": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20",
+      "tweak": "000102030405060708090a0b0c0d0e0f"
+    },
+    {
+      "ciphertext_digest": "d59a978b6c3d455a9cc14aab2adfc8c9bb2c204a8965de73e3a93ca4ba119495",
+      "key": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "plaintext_digest": "1cac7f571c52bb2c4b7a253ef1570c7704aea2819cd23cbf8f00129c873e2889",
+      "tail": "",
+      "tweak": "00000000000000000000000000000000"
+    },
+    {
+      "ciphertext_digest": "66f5b2a588cd85546043ff12b95c8a2a9f1afbb6f48b4d300131c166e5a244c8",
+      "key": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "plaintext_digest": "d977405ab85c97d892683277c2c9f3f7a9e26efa6e4ba16f008f32b5001bac72",
+      "tail": "",
+      "tweak": "000102030405060708090a0b0c0d0e0f"
+    },
+    {
+      "ciphertext_digest": "9bca47d9c7c5366e82cb3d1ab643a0d1ab3208de3a77a103017e15d13759f967",
+      "key": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "plaintext_digest": "05920a947e135da498cad1f0fde330406b03f8edb42d13736487c121776a95d8",
+      "tail": "00",
+      "tweak": "00000000000000000000000000000000"
+    },
+    {
+      "ciphertext_digest": "f95c93ba02a2eb8d46ede748824fdc864c96b43a46c4c3a3aca81f8e5e05c3e3",
+      "key": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "plaintext_digest": "c7d1b9d3ea4bb7a39812a23ad0bd291a26c4c00e85850c613cb96728479c8d02",
+      "tail": "00",
+      "tweak": "000102030405060708090a0b0c0d0e0f"
+    },
+    {
+      "ciphertext_digest": "ee8726fca5a0ff314980a4b59db7add5617ed3c03a8a8e836d854dfdbdf7b44a",
+      "key": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "plaintext_digest": "6f6d0a91969e1a1ebde1b35c58e55a3ad4274e1e4c73cbe2e9f75d8153ac1370",
+      "tail": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20",
+      "tweak": "00000000000000000000000000000000"
+    },
+    {
+      "ciphertext_digest": "1e38730cf87ebd9174a03441b4dfb42f53fa4034ba7d0d1c74691330904fcd90",
+      "key": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "plaintext_digest": "1b9c2f9718f88153a3892a43e9b832a0d5a426a74dd12176b2bb15b1ff935add",
+      "tail": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20",
+      "tweak": "000102030405060708090a0b0c0d0e0f"
+    }
+  ],
+  "kdf_cases": [
+    {
+      "ctr": "d490ac9e3424f99b92eec52507cb2161",
+      "hash": "d72d03cad28dfa7788482697652377cf",
+      "head1": "2fc47d8963859a778b26e531b7be0740",
+      "head2": "ef21e1e6ddfc734bb15398a47ef22261",
+      "master_key": "000102030405060708090a0b0c0d0e0f",
+      "seed": "c3faefb404d5b2cd7bc9cdce87649449"
+    },
+    {
+      "ctr": "94954439fa6ffa04c6ea3dd222c687cd2d9b0fe9f925c00c",
+      "hash": "36c259122048d12499be26b4e9ddc832b3d3a18e05aca7a7",
+      "head1": "af5a51d27cc4a23e70c357a59ece4fc1a2d25c0dab6f5d87",
+      "head2": "8af49d42172c03101070ed2c7b014e31e028345a403bd71a",
+      "master_key": "000102030405060708090a0b0c0d0e0f1011121314151617",
+      "seed": "dc6d1f4e7ad221aac9e24752556725c9ca28519cb56b0522"
+    },
+    {
+      "ctr": "9434a189a71a677b65c6c5a59b1811bdb0b8daabf118a9b4bbf236b6ad57edf5",
+      "hash": "8741491ccb6dbc8975bee4669d35de0a1583f1c052a5a266069605dfa5738c18",
+      "head1": "494bbeaed0f04bbb76b4c62431a09811e625e776660a4f9915edd96db3c1b8bb",
+      "head2": "488f06ecb59457d4a50a9f5a2714a43d66c7d80431551c56c860d68e416249cf",
+      "master_key": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "seed": "575eee0f9d154a883a24098a3e538b0e1e7f213a463b95ed9b65dba6a9daf623"
+    }
+  ],
+  "normative": false,
+  "profile": "Animagus-AES-v2 keyed-hash framing",
+  "profile_version": 2,
+  "provenance": "Repository-generated non-normative primitive fixtures; KDF cases use the Python standard library HMAC-SHA3-256, framed cases use the NIST bit-vector-validated python/sha3_bits.py oracle",
+  "tweak_cases": [
+    {
+      "ad": "",
+      "application": 1,
+      "digest": "b7a5ffbd3c2b22db6e22bb93bf35640b793297aa13f09d87aea4f927045a7950",
+      "key": "000102030405060708090a0b0c0d0e0f",
+      "nonce": "00"
+    },
+    {
+      "ad": "",
+      "application": 1,
+      "digest": "8d5b105333f833b8b91fb40d3885c0ed84a04acee32b61da766b05cd362c0283",
+      "key": "000102030405060708090a0b0c0d0e0f",
+      "nonce": "000102030405060708090a0b"
+    },
+    {
+      "ad": "404142434445464748494a4b4c",
+      "application": 1,
+      "digest": "9aa5ac63acca2f5fb57db5be2e9419d47953d4f027d382d54afd08453139d1f9",
+      "key": "000102030405060708090a0b0c0d0e0f",
+      "nonce": "000102030405060708090a0b"
+    },
+    {
+      "ad": "",
+      "application": 2,
+      "digest": "ea6d8e3b0490e639103fdf1d369b11ec3c5c5a178488e70a35129f7525107a40",
+      "key": "000102030405060708090a0b0c0d0e0f",
+      "nonce": ""
+    },
+    {
+      "ad": "404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e",
+      "application": 2,
+      "digest": "6884fbf91858d61fd1e79a1d507882218c7aaf1bd2bd7ee59d9636bd48fac109",
+      "key": "000102030405060708090a0b0c0d0e0f",
+      "nonce": ""
+    },
+    {
+      "ad": "",
+      "application": 3,
+      "digest": "6ad0a3449ebc43d1402a8ae44ab13bd12ca5cdbe142b83095f61d54335cbcece",
+      "key": "000102030405060708090a0b0c0d0e0f",
+      "nonce": ""
+    },
+    {
+      "ad": "",
+      "application": 1,
+      "digest": "378f0dab14b4f3792185aed084db93b8cddbab7a524e621a367656a7b516f0dc",
+      "key": "000102030405060708090a0b0c0d0e0f1011121314151617",
+      "nonce": "00"
+    },
+    {
+      "ad": "",
+      "application": 1,
+      "digest": "d62a7e6d8de10ae03718cd2ff4fa754dfcc4f88677237aae4596b089fe64fba0",
+      "key": "000102030405060708090a0b0c0d0e0f1011121314151617",
+      "nonce": "000102030405060708090a0b"
+    },
+    {
+      "ad": "404142434445464748494a4b4c",
+      "application": 1,
+      "digest": "08e6a81df6e0b906dab0a642605a4a58a868772144074591c0b179e987b47696",
+      "key": "000102030405060708090a0b0c0d0e0f1011121314151617",
+      "nonce": "000102030405060708090a0b"
+    },
+    {
+      "ad": "",
+      "application": 2,
+      "digest": "cd435e54a010afeeaf47dedf58bfbf6882426340b18291c08e2c96c41609b412",
+      "key": "000102030405060708090a0b0c0d0e0f1011121314151617",
+      "nonce": ""
+    },
+    {
+      "ad": "404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e",
+      "application": 2,
+      "digest": "f3ff99db252180019371883f428e1281818c5a5f7c34269311221f2fed84a21f",
+      "key": "000102030405060708090a0b0c0d0e0f1011121314151617",
+      "nonce": ""
+    },
+    {
+      "ad": "",
+      "application": 3,
+      "digest": "611414d4fa4ad84d66ac2e018d54ef768e936fcf8e76e7317d448be9031c394f",
+      "key": "000102030405060708090a0b0c0d0e0f1011121314151617",
+      "nonce": ""
+    },
+    {
+      "ad": "",
+      "application": 1,
+      "digest": "0f5882d38bb66171b7bb756a5e788c6a368b4427b83bd236ab56f25ecbdff16d",
+      "key": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "nonce": "00"
+    },
+    {
+      "ad": "",
+      "application": 1,
+      "digest": "0f9368960eda89e61f0a3fe66b75388cbb85a7eabebd458d65197526cf6b277f",
+      "key": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "nonce": "000102030405060708090a0b"
+    },
+    {
+      "ad": "404142434445464748494a4b4c",
+      "application": 1,
+      "digest": "a180c4fa291c775fcbdda79fed06212c60a307f00e69660bab7915eb505c0ac3",
+      "key": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "nonce": "000102030405060708090a0b"
+    },
+    {
+      "ad": "",
+      "application": 2,
+      "digest": "088171848e1e3788d2a84641e7694a2a2d54466b8404ca70203be1d791355fc4",
+      "key": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "nonce": ""
+    },
+    {
+      "ad": "404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e",
+      "application": 2,
+      "digest": "03edd6713e20b54c451b7de39dbba37fc3bb92cefd4ba7265ffa4cfe1a035f09",
+      "key": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "nonce": ""
+    },
+    {
+      "ad": "",
+      "application": 3,
+      "digest": "f5bf04069bcc2182f79906e5e2226c0d51e3cca0266f2cc1b20ee0fea50c8aae",
+      "key": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "nonce": ""
+    }
+  ]
+}
